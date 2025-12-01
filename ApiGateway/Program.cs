@@ -1,10 +1,19 @@
+﻿using Common.Logging;                          // 🔹 Shared Serilog + exception middleware
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// =============================================================
+// 0. LOGGING: SERILOG (CENTRALIZED)
+// =============================================================
+// Uses "Serilog" section from appsettings.json
+// Enriches logs with ServiceName = "ApiGateway"
+builder.AddSerilogLogging("ApiGateway");
 
 // =============================================================
 // 1. Load ocelot.json
@@ -30,16 +39,29 @@ builder.Services.AddSwaggerGen();
 
 // =============================================================
 // 4. JWT Authentication
-// NOTE: Use the same scheme name as configured in ocelot.json ("JwtBearer").
-// Use AddAuthentication(string) overload to set default scheme explicitly.
+// NOTE: Scheme name "JwtBearer" must match what is used in ocelot.json
 // =============================================================
+var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+bool jwtConfigured =
+    !string.IsNullOrEmpty(jwtKey) &&
+    !string.IsNullOrEmpty(jwtIssuer) &&
+    !string.IsNullOrEmpty(jwtAudience);
+
+if (!jwtConfigured)
+{
+    Console.WriteLine("WARNING: JWT is not fully configured for ApiGateway. Check Jwt:Key/Issuer/Audience in appsettings.json.");
+}
+
 builder.Services.AddAuthentication("JwtBearer")
     .AddJwtBearer("JwtBearer", options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
 
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -47,7 +69,7 @@ builder.Services.AddAuthentication("JwtBearer")
             ValidateIssuerSigningKey = true,
 
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                Encoding.UTF8.GetBytes(jwtKey ?? string.Empty))
         };
     });
 
@@ -62,25 +84,29 @@ builder.Services.AddOcelot(builder.Configuration);
 var app = builder.Build();
 
 // =============================================================
-// 6. Enable CORS
+// 6. MIDDLEWARE PIPELINE (ORDER MATTERS)
 // =============================================================
+
+// Serilog request logging (method, path, status, duration)
+app.UseSerilogRequestLogging();
+
+// Global exception handling from Common.Logging
+// Any unhandled exception in gateway returns consistent JSON error
+app.UseGlobalExceptionHandling();
+
+// CORS
 app.UseCors("AllowAll");
 
-// =============================================================
-// 7. Use Authentication & Authorization
-// Move authentication/authorization before Swagger so challenges have default scheme
-// =============================================================
+// Authentication & Authorization (must be before Swagger & Ocelot)
 app.UseAuthentication();
 app.UseAuthorization();
 
-// =============================================================
-// 8. Swagger
-// =============================================================
+// Swagger for gateway (optional, usually for debugging)
 app.UseSwagger();
 app.UseSwaggerUI();
 
 // =============================================================
-// 9. Run Ocelot Middleware
+// 7. Run Ocelot Middleware
 // =============================================================
 await app.UseOcelot();
 

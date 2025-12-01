@@ -56,5 +56,6 @@ namespace InventoryService.Services
 
             return true;
         }
+
     }
 }

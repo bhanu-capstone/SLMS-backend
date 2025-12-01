@@ -171,5 +171,7 @@ namespace ComplianceService.Services
         {
             return await _events.GetAllAsync();
         }
+
+
     }
 }

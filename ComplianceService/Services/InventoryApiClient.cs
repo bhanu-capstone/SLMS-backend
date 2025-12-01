@@ -18,6 +18,12 @@ namespace ComplianceService.Services
                    ?? new List<LicenseModel>();
         }
 
+        public async Task<LicenseModel> GetLicenseById(int licenseId)
+        {
+            return await _http.GetFromJsonAsync<LicenseModel>($"/api/licenses/{licenseId}")
+                   ?? new LicenseModel();
+        }
+
         public async Task<List<InstalledSoftwareModel>> GetInstalledAsync()
         {
             return await _http.GetFromJsonAsync<List<InstalledSoftwareModel>>("/api/installations")

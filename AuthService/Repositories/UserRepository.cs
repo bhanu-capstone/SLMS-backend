@@ -1,4 +1,5 @@
-﻿using AuthService.Models.Database;
+﻿using AuthService.Models;
+using AuthService.Models.Database;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Repositories
@@ -38,5 +39,18 @@ namespace AuthService.Repositories
             _db.Users.Update(user);
             await _db.SaveChangesAsync();
         }
+
+        public async Task<IEnumerable<UserEmailDto>> GetEmailsByRoleAsync(string role)
+        {
+            return await _db.Users
+                .Where(u => u.Role == role)
+                .Select(u => new UserEmailDto
+                {
+                    Id = u.Id,
+                    Email = u.Email
+                })
+                .ToListAsync();
+        }
+
     }
 }

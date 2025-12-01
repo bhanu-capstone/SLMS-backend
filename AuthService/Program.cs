@@ -1,12 +1,19 @@
+﻿using Common.Logging;                                  // 🔹 Shared logging & exception handling
 using AuthService.Models.Database;
 using AuthService.Repositories;
 using AuthService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// =============================================================
+// 0. LOGGING: SERILOG (CENTRALIZED)
+// =============================================================
+builder.AddSerilogLogging("AuthService");
 
 // =============================================================
 // 1. ADD CONTROLLERS
@@ -32,7 +39,9 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-// HttpClient for Mail Service
+// =============================================================
+// 4. HTTP CLIENT FOR MAIL SERVICE
+// =============================================================
 builder.Services.AddHttpClient<HttpEmailClient>(client =>
 {
     var url = builder.Configuration["ServiceUrls:MailService"];
@@ -42,16 +51,14 @@ builder.Services.AddHttpClient<HttpEmailClient>(client =>
     client.BaseAddress = new Uri(url);
 });
 
-
-
 // =============================================================
-// 4. REGISTER REPOSITORIES
+// 5. REGISTER REPOSITORIES
 // =============================================================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // =============================================================
-// 5. REGISTER AUTHENTICATION SERVICES
+// 6. REGISTER AUTHENTICATION SERVICES
 // =============================================================
 builder.Services.AddScoped<IAuthService, AuthService.Services.AuthService>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
@@ -59,15 +66,35 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 // =============================================================
-// 6. JWT AUTHENTICATION SETUP
+// 7. JWT AUTHENTICATION SETUP
 // =============================================================
-var jwtKey = builder.Configuration["Jwt:Key"];
-// Roles used across services
 var allowedRoles = new[] { "Admin", "Finance", "Auditor", "ReadOnly" };
 
-if (!string.IsNullOrEmpty(jwtKey))
+var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+bool jwtConfigured =
+    !string.IsNullOrEmpty(jwtKey) &&
+    !string.IsNullOrEmpty(jwtIssuer) &&
+    !string.IsNullOrEmpty(jwtAudience);
+
+if (!jwtConfigured)
 {
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    Console.WriteLine("WARNING: JWT is not fully configured for AuthService.");
+}
+else
+{
+    if (jwtKey!.Length < 32)
+        Console.WriteLine("WARNING: Jwt:Key should be at least 32 characters for security.");
+
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
         .AddJwtBearer(options =>
         {
             options.TokenValidationParameters = new TokenValidationParameters
@@ -76,16 +103,18 @@ if (!string.IsNullOrEmpty(jwtKey))
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                    Encoding.UTF8.GetBytes(jwtKey)),
+                ClockSkew = TimeSpan.Zero
             };
         });
 }
 
-// Always add authorization policies so they are available even if JWT is not configured
+// =============================================================
+// 8. AUTHORIZATION POLICIES
+// =============================================================
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdministratorsOnly", policy =>
@@ -96,7 +125,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 // =============================================================
-// 7. CORS (Allow All for Dev)
+// 9. CORS (Allow All for Dev)
 // =============================================================
 builder.Services.AddCors(options =>
 {
@@ -107,36 +136,41 @@ builder.Services.AddCors(options =>
 });
 
 // =============================================================
-// 8. BUILD APP
+// 10. BUILD APP
 // =============================================================
 var app = builder.Build();
 
 // =============================================================
-// 9. AUTO APPLY MIGRATIONS (Dev Only)
+// 11. APPLY MIGRATIONS (Dev)
 // =============================================================
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-    db.Database.Migrate();
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+//    db.Database.Migrate();
+//}
 
 // =============================================================
-// 10. MIDDLEWARE
+// 12. MIDDLEWARE PIPELINE
 // =============================================================
+app.UseSerilogRequestLogging();
+app.UseGlobalExceptionHandling();
+
 app.UseCors("AllowAll");
-
-// Ensure authentication/authorization run before Swagger/UI so authorization challenges have a default scheme
-if (!string.IsNullOrEmpty(jwtKey))
-{
-    app.UseAuthentication();  // <--- IMPORTANT
-}
-app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseHttpsRedirection();
+
+if (jwtConfigured)
+{
+    app.UseAuthentication();
+}
+
+app.UseAuthorization();
 
 app.MapControllers();
 

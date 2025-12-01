@@ -49,5 +49,6 @@ namespace InventoryService.Repositories
 
         public Task<int> CountAssignmentsForLicense(int licenseId) =>
             _db.Entitlements.CountAsync(e => e.LicenseId == licenseId);
+
     }
 }

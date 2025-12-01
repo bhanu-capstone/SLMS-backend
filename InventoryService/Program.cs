@@ -1,3 +1,4 @@
+﻿using Common.Logging;                          // 🔹 shared logging library (Serilog + middlewares)
 using InventoryService.Models;
 using InventoryService.Repositories;
 using InventoryService.Services;
@@ -6,8 +7,16 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Serilog;                                  // 🔹 for UseSerilogRequestLogging
 
 var builder = WebApplication.CreateBuilder(args);
+
+// =============================================================
+// 0. LOGGING: SERILOG (centralized)
+// =============================================================
+// Uses configuration from appsettings.json -> "Serilog" section
+// and enriches logs with ServiceName="InventoryService"
+builder.AddSerilogLogging("InventoryService");
 
 // =============================================================
 // 1. DATABASE: SQL Server
@@ -47,6 +56,7 @@ builder.Services.AddScoped<IVendorContractService, VendorContractService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        // Avoid reference loop issues in navigation properties
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.WriteIndented = true;
     });
@@ -71,13 +81,13 @@ builder.Services.AddCors(options =>
 });
 
 // =============================================================
-// 7. JWT AUTHENTICATION - FIXED (Always register, validate config)
+// 7. JWT AUTHENTICATION
 // =============================================================
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-// Validate configuration
+// Validate configuration early so app fails fast if misconfigured
 if (string.IsNullOrEmpty(jwtKey))
     throw new InvalidOperationException("Jwt:Key is not configured in appsettings.json");
 if (string.IsNullOrEmpty(jwtIssuer))
@@ -99,9 +109,9 @@ builder.Services
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,                    // FIXED: was false
-            ValidateAudience = true,                  // FIXED: was false
-            ValidateLifetime = true,                  // FIXED: was missing
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
@@ -147,6 +157,17 @@ var app = builder.Build();
 // =============================================================
 // 9. MIDDLEWARE PIPELINE (Order matters!)
 // =============================================================
+
+// Serilog HTTP request logging (status, time taken, etc.)
+app.UseSerilogRequestLogging();
+
+// Correlation ID -> adds X-Correlation-Id header and logs it
+//app.UseCorrelationId();
+
+// Global exception handler -> catches all unhandled exceptions
+// and returns a consistent JSON error payload
+app.UseGlobalExceptionHandling();
+
 app.UseCors("AllowAll");
 
 if (app.Environment.IsDevelopment())

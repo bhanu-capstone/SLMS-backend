@@ -8,7 +8,7 @@ namespace InventoryService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Finance")]
+    //[Authorize(Roles = "Finance")]
     public class EntitlementsController : ControllerBase
     {
         private readonly IEntitlementService _service;
@@ -52,5 +52,6 @@ namespace InventoryService.Controllers
             var ok = await _service.DeleteAsync(id);
             return ok ? NoContent() : NotFound();
         }
+
     }
 }

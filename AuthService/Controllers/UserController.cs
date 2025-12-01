@@ -22,6 +22,7 @@ namespace AuthService.Controllers
         // 1. GET CURRENT USER INFO USING TOKEN
         // ----------------------------------------------------
         [HttpGet("me")]
+
         public async Task<IActionResult> GetCurrentUser()
         {
             var userId = User.FindFirst("id")?.Value;
@@ -42,6 +43,24 @@ namespace AuthService.Controllers
                 Role = user.Role
             });
         }
+
+        // ----------------------------------------------------
+        // 2. GET IT ADMIN EMAILS
+        // ----------------------------------------------------
+        [HttpGet("it-emails")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetITAdminEmails()
+        {
+            var admins = await _userRepo.GetEmailsByRoleAsync("Admin");
+
+            var dto = admins.Select(u => new
+            {
+                UserId = u.Id,
+                Email = u.Email,
+                Username = u.Username
+            });
+
+            return Ok(dto);
+        }
     }
 }
-

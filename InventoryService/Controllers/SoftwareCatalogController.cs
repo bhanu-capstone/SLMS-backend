@@ -18,6 +18,8 @@ namespace InventoryService.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll() =>
             Ok(await _service.GetAllAsync());
+        
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)

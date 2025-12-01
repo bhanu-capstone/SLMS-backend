@@ -104,5 +104,7 @@ namespace AuthService.Services
                 Expiration = DateTime.UtcNow.AddHours(1)
             };
         }
+
+        
     }
 }

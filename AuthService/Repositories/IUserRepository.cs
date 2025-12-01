@@ -1,4 +1,5 @@
-﻿using AuthService.Models.Database;
+﻿using AuthService.Models;
+using AuthService.Models.Database;
 
 namespace AuthService.Repositories
 {
@@ -9,5 +10,6 @@ namespace AuthService.Repositories
         Task<UserEntity?> GetByIdAsync(int id);
         Task AddAsync(UserEntity user);
         Task UpdateAsync(UserEntity user);
+        Task <IEnumerable<UserEmailDto>> GetEmailsByRoleAsync(string role);
     }
 }
