@@ -4,6 +4,9 @@ namespace InventoryService.Services
 {
     public interface ILicenseService
     {
+        
+            Task<List<License>> GetExpiringLicensesAsync(int days);
+        
         Task<List<License>> GetAllAsync();
         Task<License?> GetByIdAsync(int id);
         Task<License> CreateAsync(License license);

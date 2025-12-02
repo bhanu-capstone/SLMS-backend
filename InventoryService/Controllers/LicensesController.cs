@@ -65,5 +65,23 @@ namespace InventoryService.Controllers
             var res = await _service.SearchAsync(product, vendor);
             return Ok(res.Select(l => new LicenseDto(l)));
         }
+        [HttpGet("expiring/{days}")]
+        public async Task<IActionResult> GetExpiring(int days)
+        {
+            try
+            {
+                var result = await _service.GetExpiringLicensesAsync(days);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal error: " + ex.Message);
+            }
+        }
+
     }
 }

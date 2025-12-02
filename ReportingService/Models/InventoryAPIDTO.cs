@@ -1,7 +1,11 @@
-﻿namespace ReportingService.Models
+﻿using System.Text.Json.Serialization;
+
+namespace ReportingService.Models
 {
     public class LicenseDto
     {
+        //changed
+        [JsonPropertyName("licenseId")] 
         public int Id { get; set; }
         public string ProductName { get; set; } = "";
         public string Vendor { get; set; } = "";
