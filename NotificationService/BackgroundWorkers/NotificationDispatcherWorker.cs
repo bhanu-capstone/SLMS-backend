@@ -19,7 +19,7 @@ namespace NotificationService.BackgroundWorkers
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("🟢 Notification Dispatcher started.");
+            _logger.LogInformation("Notification Dispatcher started.");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -47,7 +47,7 @@ namespace NotificationService.BackgroundWorkers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Dispatcher failed");
+                    _logger.LogError(ex, "Dispatcher failed");
                 }
 
                 int pollSec = _config.GetValue<int>("Workers:DispatchPollSeconds", 5);

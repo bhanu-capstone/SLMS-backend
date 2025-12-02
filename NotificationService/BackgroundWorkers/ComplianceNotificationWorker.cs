@@ -23,7 +23,7 @@ namespace NotificationService.BackgroundWorkers
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("🔵 Compliance Notification Worker started.");
+            _logger.LogInformation("Compliance Notification Worker started.");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -37,20 +37,20 @@ namespace NotificationService.BackgroundWorkers
                     var repo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
 
                     // Step 1: Trigger compliance engine run
-                    _logger.LogInformation("🚀 Triggering compliance engine run...");
+                    _logger.LogInformation("Triggering compliance engine run...");
                     await complianceClient.TriggerComplianceRunAsync();
 
                     // Step 2: Get alerts
-                    _logger.LogInformation("📡 Fetching compliance alerts...");
+                    _logger.LogInformation("Fetching compliance alerts...");
                     var alerts = await complianceClient.GetEventsAsync();
 
-                    _logger.LogInformation("📥 Retrieved {count} alerts.", alerts.Count);
+                    _logger.LogInformation("Retrieved {count} alerts.", alerts.Count);
 
                     if (alerts.Count > 0)
                     {
                         // Step 3: get admin emails
                         var admins = await authClient.GetAdminEmailsAsync(stoppingToken);
-                        _logger.LogInformation("🔑 IT Admin emails: {emails}", string.Join(", ", admins));
+                        _logger.LogInformation("IT Admin emails: {emails}", string.Join(", ", admins));
 
                         // Step 4: Send email for each alert
                         foreach (var alert in alerts)
@@ -85,7 +85,7 @@ namespace NotificationService.BackgroundWorkers
 
                                 await repo.CreateAsync(notif);
 
-                                _logger.LogInformation("📨 Notification sent={sent} admin={admin} eventId={id}",
+                                _logger.LogInformation("Notification sent={sent} admin={admin} eventId={id}",
                                     sent, adminEmail, alert.Id);
                             }
                         }
@@ -97,7 +97,7 @@ namespace NotificationService.BackgroundWorkers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Compliance Notification Worker failed");
+                    _logger.LogError(ex, "Compliance Notification Worker failed");
                 }
 
                 var sleep = _config.GetValue<int>("Workers:CompliancePollSeconds", 30);
